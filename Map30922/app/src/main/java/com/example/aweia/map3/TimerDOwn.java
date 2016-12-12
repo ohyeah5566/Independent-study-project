@@ -10,11 +10,11 @@ import android.os.CountDownTimer;
 
 
 
-public class TimerDOwn extends Thread {
+public class TimerDown extends Thread {
 
     public CountDownTimer cTimer;
 
-    public TimerDOwn(CountDownTimer cTimer){
+    public TimerDown(CountDownTimer cTimer){
         this.cTimer = cTimer;
     }
 
