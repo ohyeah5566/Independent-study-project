@@ -62,7 +62,8 @@ public class Heart {
                         if(count>2000) {
                             Log.d("PeakData", "PeakDataEnough");
                             count=0;
-                            if(uselessData > 800) {
+                            if(uselessData > 900) {
+                                Log.d("Heart", "uselessData = " + uselessData);
                                 bpmHandler.sendEmptyMessage(INVALID_DATA);
                             }
                             else {

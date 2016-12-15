@@ -8,17 +8,21 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.location.Geocoder;
-import android.location.Location;
 import android.location.LocationManager;
 
 import android.os.Message;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -31,6 +35,7 @@ import com.google.android.gms.maps.UiSettings;
 /*******************Http Volley******************/
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
+import com.neurosky.thinkgear.TGDevice;
 /**********************************************/
 
 import java.io.IOException;
@@ -47,8 +52,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private Button btn_connectBT;              //藍芽連線的按鈕
     private TextView bpmAverage;            //顯示平均心跳數
     private LinearLayout linearLayout;
-    private ImageView bmp_image;
+    private LinearLayout connectBrain;
+    private HorizontalScrollView scroll_mainBottom;
     private ImageView peak_iamge;
+    private LinearLayout templayout;
+    private TextView textview_attention;
+    private ProgressBar attentionBar;
     /**********************************************/
 
     /*******************Internet********************/
@@ -60,6 +69,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     /**********************************************/
     private Heart heart;
 
+    TGDevice tgDevice;
+
 
     /*******************MAP追蹤協尋************/
     private GoogleMap mMap;                  //GoogleMap物件
@@ -69,6 +80,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     /*******************BT*********************/
     private BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    private BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
     BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
     private BluetoothSocket btSocket = null;
     private OutputStream outStream;
@@ -100,11 +113,22 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        templayout = new LinearLayout(MainActivity.this);
+        templayout.setOrientation(LinearLayout.HORIZONTAL);
+
+
+        scroll_mainBottom = (HorizontalScrollView) findViewById(R.id.scroll_mainBottom);
+        View v = LayoutInflater.from(MainActivity.this).inflate(R.layout.ecg,null);
+        templayout.addView(v);
+        v = LayoutInflater.from(MainActivity.this).inflate(R.layout.attention,null);
+        templayout.addView(v);
+        scroll_mainBottom.addView(templayout);
+
+
         //開始執行ECGdraw的動作，並新增LAYOUT
         ecg = new ECGview(MainActivity.this);
         linearLayout = (LinearLayout)findViewById(R.id.DrawLayout);
         linearLayout.addView(ecg);
-
 
         geocoder = new Geocoder(MainActivity.this, Locale.TRADITIONAL_CHINESE);
         mQueue = Volley.newRequestQueue(this);
@@ -112,11 +136,26 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         btn_connectBT = (Button) findViewById(R.id.btn_connectBT);
         bpmAverage = (TextView) findViewById(R.id.bpmAverage);
         peak_iamge = (ImageView) findViewById(R.id.peak_image);
-        bmp_image = (ImageView) findViewById (R.id.bmp_image);
-
+        textview_attention = (TextView) findViewById(R.id.textview_attention);
+        connectBrain = (LinearLayout) findViewById(R.id.connect_brain);
+        attentionBar = (ProgressBar) findViewById(R.id.progressBar);
+        attentionBar.setProgressDrawable(getDrawable(R.drawable.progress_font));
+        connectBrain.setOnClickListener(clickListener);
         btn_connectBT.setOnClickListener(clickListener);
         peak_iamge.setOnClickListener(clickListener);
 
+
+        //---------------------------------------------------------藍芽連結s
+        if (bluetoothAdapter == null) {
+            // Alert user that Bluetooth is not available
+            Toast.makeText(this, "Bluetooth not available", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        else {
+					/* create the TGDevice */
+            tgDevice = new TGDevice(bluetoothAdapter, handler);
+        }
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -178,11 +217,64 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     });
                     dialog_list.show();
                     break;
+                case R.id.connect_brain:
+                    if (tgDevice != null) {
+                        if (tgDevice.getState() != TGDevice.STATE_CONNECTING
+                                && tgDevice.getState() != TGDevice.STATE_CONNECTED)
+                            tgDevice.connect(true);
+                    }
+                    break;
             }
 
         }
     };
+    //------------------------------------------------------抓取腦波數值的副程式
+    private final Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case TGDevice.MSG_STATE_CHANGE:
 
+                    switch (msg.arg1) {
+                        case TGDevice.STATE_IDLE:
+                            break;
+                        case TGDevice.STATE_CONNECTING:
+                            textview_attention.setText("Connecting...");
+                            break;
+                        case TGDevice.STATE_CONNECTED:
+                            textview_attention.setText("Connected.");
+                            tgDevice.start();
+                            break;
+                        case TGDevice.STATE_NOT_FOUND:
+                            textview_attention.setText("Can't find");
+                            break;
+                        case TGDevice.STATE_NOT_PAIRED:
+                            textview_attention.setText("not paired");
+                            break;
+                        case TGDevice.STATE_DISCONNECTED:
+                            textview_attention.setText("Disconnected");
+                    }
+                    break;
+                case TGDevice.MSG_POOR_SIGNAL:
+                    if(msg.arg1>0) {
+                        textview_attention.setText("Missing data : " + msg.arg1);
+                    }
+                    break;
+
+                case TGDevice.MSG_ATTENTION:
+                    attentionBar.setProgress(msg.arg1);
+                    UserStatus(msg.arg1);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    };
+
+    private void UserStatus(int attention) {
+            textview_attention.setText("專注力 "+ attention+"%");
+    }
 
     @Override
     public void onStart() {

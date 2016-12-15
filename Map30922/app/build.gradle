@@ -26,4 +26,5 @@ dependencies {
     compile 'com.google.android.gms:play-services:8.1.0'
     //import volley這個網路傳接的用法
     compile 'com.mcxiaoke.volley:library:1.0.+'
+    compile files('libs/ThinkGear.jar')
 }
