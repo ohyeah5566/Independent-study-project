@@ -13,6 +13,8 @@ import java.util.Queue;
  */
 public class Heart {
     private String bpm;
+    final int INVALID_DATA = 1;
+    final int VALID_DATA = 0;
 
     private BluetoothSocket btSocket;
     private InputStream InStream;
@@ -20,6 +22,7 @@ public class Heart {
     private Handler bpmHandler;
     private ECGview ecg ;
     private Queue<Integer> RowData ;
+    private int uselessData = 0 ;
 
     public Heart(BluetoothSocket btSocket,ECGview ecg,Handler bpmHandler){
         this.btSocket = btSocket ;
@@ -52,17 +55,25 @@ public class Heart {
                         ecg.addValue(temp);
                         RowData.offer(temp);
                         count++;
+
+                        if(temp > 700)
+                            uselessData++;
+
                         if(count>2000) {
                             Log.d("PeakData", "PeakDataEnough");
                             count=0;
-                            //                 btHandler.sendEmptyMessage(0);  暫時用不到Server 先註解掉
-                            for(int i=0;i<2000;i++)
-                                RowData_In[i] = RowData.poll() ;
+                            if(uselessData > 800) {
+                                bpmHandler.sendEmptyMessage(INVALID_DATA);
+                            }
+                            else {
+                                for (int i = 0; i < 2000; i++)
+                                    RowData_In[i] = RowData.poll();
 
                                 bpm = peak_detect(RowData_In);
-                                bpmHandler.sendEmptyMessage(0);
+                                bpmHandler.sendEmptyMessage(VALID_DATA);
+                            }
 
-
+                            uselessData = 0 ;
                             this.sleep(200);
                          }
                     }
@@ -94,7 +105,7 @@ public class Heart {
             int X5[] = new int[N];          //PEAK的分散狀態，0→1代表有 peak
             int R[] ;                       //儲存有可能是PEAK的資料位置
             int R_t[] ;                     //儲存有可能是PEAK的資料位置
-            int R_site[] = new int[P];
+            int R_site[]     = new int[P];
             double M[];
             double com_max[] = new double[2];
 
@@ -273,7 +284,12 @@ public class Heart {
                 }
             }
 
-            return ((Math.round((double)60*200*(cnt_peak-1)/(LastPeak-FirstPeak)*10)/10.0) +"");
+
+            double bpm = Math.round((double)60*200*(cnt_peak-1)/(LastPeak-FirstPeak)*10)/10.0;
+            if(bpm < 60 ||  bpm > 160)
+                return "Err";
+
+            return bpm+"" ;
 
         }
 

@@ -64,7 +64,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     /*******************MAP追蹤協尋************/
     private GoogleMap mMap;                  //GoogleMap物件
     private LocationManager locationManager; //位置管理員 負責開啟GPS定位....之類
-    private Location Here;                   //儲存現在的位置
     private Geocoder geocoder;               //將地址轉成經緯度
     /******************************************/
 
@@ -79,10 +78,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     Handler bmpHandler = new Handler() {
         public void handleMessage(Message m) {      //用Handler處理傳入進來心跳數
-            Log.d("MainActivity","handleMessage");
+            Log.d("MainActivity","handleMessage, m = " + m.what);
             if(m.what==0) {
                 try {
-
                     bpmAverage.setText(heart.getbpm());
                     } catch (Exception e) {
                     Log.e("FormatError", e.toString());
@@ -101,16 +99,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-//        requestPermissions(INITIAL_PERMS, 1337);
-//        requestPermissions(WRITE_STORAGE, 1338);
 
         //開始執行ECGdraw的動作，並新增LAYOUT
         ecg = new ECGview(MainActivity.this);
         linearLayout = (LinearLayout)findViewById(R.id.DrawLayout);
         linearLayout.addView(ecg);
 
-        
+
         geocoder = new Geocoder(MainActivity.this, Locale.TRADITIONAL_CHINESE);
         mQueue = Volley.newRequestQueue(this);
 
@@ -133,9 +128,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         public void onClick(View v) {
             switch (v.getId()){
                 case R.id.btn_connectBT:
-                    if (!mBluetoothAdapter.isEnabled()) {
-                        mBluetoothAdapter.enable();
-                    }   //檢查使用者有沒有開啟藍芽，沒有則自動開啟
+
                     try {
                         btSocket = device.createRfcommSocketToServiceRecord(MY_UUID);
                         if (!btSocket.isConnected()) {
