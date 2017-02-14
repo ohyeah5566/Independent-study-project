@@ -217,6 +217,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     });
                     dialog_list.show();
                     break;
+                case R.id.bmp_image:
+
+                    break;
                 case R.id.connect_brain:
                     if (tgDevice != null) {
                         if (tgDevice.getState() != TGDevice.STATE_CONNECTING

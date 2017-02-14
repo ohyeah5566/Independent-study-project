@@ -38,7 +38,7 @@ public class Locate {
     private GoogleMap mMap ;
     private Geocoder geocoder ;
     private RequestQueue mQueue ;
-    private String IP = "192.168.43.227";
+    private String IP = "192.168.1.157";
 
 
     //倒數計時器，2分鐘問一次Server是否有資料能下載

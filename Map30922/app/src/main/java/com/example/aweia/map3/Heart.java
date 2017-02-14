@@ -23,6 +23,7 @@ public class Heart {
     private ECGview ecg ;
     private Queue<Integer> RowData ;
     private int uselessData = 0 ;
+    private int MaxUselessData = 0 ;
 
     public Heart(BluetoothSocket btSocket,ECGview ecg,Handler bpmHandler){
         this.btSocket = btSocket ;
@@ -37,6 +38,7 @@ public class Heart {
     public String getbpm(){
         return bpm;
     }
+
 
     private class getData extends Thread {
         @Override
@@ -62,7 +64,7 @@ public class Heart {
                         if(count>2000) {
                             Log.d("PeakData", "PeakDataEnough");
                             count=0;
-                            if(uselessData > 900) {
+                            if(uselessData < 950) {
                                 Log.d("Heart", "uselessData = " + uselessData);
                                 bpmHandler.sendEmptyMessage(INVALID_DATA);
                             }
@@ -79,8 +81,8 @@ public class Heart {
                          }
                     }
                 } catch (Exception e) {
-                    bpm = "200.0";
-                    bpmHandler.sendEmptyMessage(0);
+                    bpm = "Err";
+                    bpmHandler.sendEmptyMessage(INVALID_DATA);
                     Log.e("Data_Counter", e.toString()  + "Line = " + e.getStackTrace()[0].getLineNumber());
                 }
             }
@@ -332,4 +334,9 @@ public class Heart {
             return MAX;
         }
     }
+
+    public void setMaxUselessData(int maxUselessData) {
+        MaxUselessData = maxUselessData;
+    }
+
 }
