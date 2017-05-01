@@ -17,12 +17,10 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -47,8 +45,6 @@ import android.os.Handler;
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback {
 
-
-    /*******************LAYOUT*********************/
     private Button btn_connectBT;              //藍芽連線的按鈕
     private TextView bpmAverage;            //顯示平均心跳數
     private LinearLayout linearLayout;
@@ -58,179 +54,24 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private LinearLayout templayout;
     private TextView textview_attention;
     private ProgressBar attentionBar;
-    /**********************************************/
 
-    /*******************Internet********************/
     RequestQueue mQueue ;
-    /**********************************************/
-
-    /*******************DrawECG********************/
     ECGview ecg ;
-    /**********************************************/
-    private Heart heart;
+    private GetDataThread getDataThread;
 
-    TGDevice tgDevice;
-
-
-    /*******************MAP追蹤協尋************/
     private GoogleMap mMap;                  //GoogleMap物件
     private LocationManager locationManager; //位置管理員 負責開啟GPS定位....之類
     private Geocoder geocoder;               //將地址轉成經緯度
-    /******************************************/
 
-    /*******************BT*********************/
-    private BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
     private BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-    BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+    private BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    private BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
     private BluetoothSocket btSocket = null;
     private OutputStream outStream;
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");    //藍芽編號 必寫且固定
     private static String address = "98:D3:31:90:1A:39";     //欲連線之藍芽位置，目前寫死將來會可選取
-    /******************************************/
+    private TGDevice tgDevice ;
 
-    Handler bmpHandler = new Handler() {
-        public void handleMessage(Message m) {      //用Handler處理傳入進來心跳數
-            Log.d("MainActivity","handleMessage, m = " + m.what);
-            if(m.what==0) {
-                try {
-                    bpmAverage.setText(heart.getbpm());
-                    } catch (Exception e) {
-                    Log.e("FormatError", e.toString());
-
-                }
-            }
-            else
-                bpmAverage.setText("Err");
-        }
-    };
-
-    /**********************************************/
-
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        templayout = new LinearLayout(MainActivity.this);
-        templayout.setOrientation(LinearLayout.HORIZONTAL);
-
-
-        scroll_mainBottom = (HorizontalScrollView) findViewById(R.id.scroll_mainBottom);
-        View v = LayoutInflater.from(MainActivity.this).inflate(R.layout.ecg,null);
-        templayout.addView(v);
-        v = LayoutInflater.from(MainActivity.this).inflate(R.layout.attention,null);
-        templayout.addView(v);
-        scroll_mainBottom.addView(templayout);
-
-
-        //開始執行ECGdraw的動作，並新增LAYOUT
-        ecg = new ECGview(MainActivity.this);
-        linearLayout = (LinearLayout)findViewById(R.id.DrawLayout);
-        linearLayout.addView(ecg);
-
-        geocoder = new Geocoder(MainActivity.this, Locale.TRADITIONAL_CHINESE);
-        mQueue = Volley.newRequestQueue(this);
-
-        btn_connectBT = (Button) findViewById(R.id.btn_connectBT);
-        bpmAverage = (TextView) findViewById(R.id.bpmAverage);
-        peak_iamge = (ImageView) findViewById(R.id.peak_image);
-        textview_attention = (TextView) findViewById(R.id.textview_attention);
-        connectBrain = (LinearLayout) findViewById(R.id.connect_brain);
-        attentionBar = (ProgressBar) findViewById(R.id.progressBar);
-        attentionBar.setProgressDrawable(getDrawable(R.drawable.progress_font));
-        connectBrain.setOnClickListener(clickListener);
-        btn_connectBT.setOnClickListener(clickListener);
-        peak_iamge.setOnClickListener(clickListener);
-
-
-        //---------------------------------------------------------藍芽連結s
-        if (bluetoothAdapter == null) {
-            // Alert user that Bluetooth is not available
-            Toast.makeText(this, "Bluetooth not available", Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
-        else {
-					/* create the TGDevice */
-            tgDevice = new TGDevice(bluetoothAdapter, handler);
-        }
-
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
-    }
-
-    View.OnClickListener clickListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            switch (v.getId()){
-                case R.id.btn_connectBT:
-
-                    try {
-                        btSocket = device.createRfcommSocketToServiceRecord(MY_UUID);
-                        if (!btSocket.isConnected()) {
-                            if (BTConnect()) {
-                                outStream = btSocket.getOutputStream();
-                                outStream.write("S".getBytes());
-
-                                btn_connectBT.setEnabled(false);
-                                btn_connectBT.setText("已連線");
-
-                                heart = new Heart(btSocket, ecg, bmpHandler);
-                            }
-                        }
-                    } catch (IOException e) {
-
-                        Log.e("Bt_button", e.toString() + "Line:" + e.getStackTrace()[0].getLineNumber());
-                    }
-
-                    break;
-                case R.id.peak_image:
-                    final String[] level = new String[]{"準位上升", "準位下降", "訊號放大", "訊號縮小"};
-                    AlertDialog.Builder dialog_list = new AlertDialog.Builder(MainActivity.this);
-                    dialog_list.setTitle("心電訊號校正");
-                    dialog_list.setItems(level, new DialogInterface.OnClickListener() {
-                        @Override
-                        //只要你在onClick處理事件內，使用which參數，就可以知道按下陣列裡的哪一個了
-                        public void onClick(DialogInterface dialog, int which) {
-                            switch(which) {
-                                case 0:
-                                    ecg.setLevel(-50);
-                                    break;
-                                case 1:
-                                    ecg.setLevel(50);
-                                    break;
-                                case 2:
-                                    ecg.setCompression(-1);
-                                    break;
-                                case 3:
-                                    ecg.setCompression(1);
-                                    break;
-                            }
-
-
-                            Toast.makeText(MainActivity.this, "準位校正" + level[which] , Toast.LENGTH_SHORT).show();
-
-                        }
-                    });
-                    dialog_list.show();
-                    break;
-                case R.id.bmp_image:
-
-                    break;
-                case R.id.connect_brain:
-                    if (tgDevice != null) {
-                        if (tgDevice.getState() != TGDevice.STATE_CONNECTING
-                                && tgDevice.getState() != TGDevice.STATE_CONNECTED)
-                            tgDevice.connect(true);
-                    }
-                    break;
-            }
-
-        }
-    };
     //------------------------------------------------------抓取腦波數值的副程式
     private final Handler handler = new Handler() {
         @Override
@@ -275,6 +116,106 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     };
 
+
+    Handler bmpHandler = new Handler() {
+        public void handleMessage(Message m) {      //用Handler處理傳入進來心跳數
+            bpmAverage.setText(m.getData().getString("bpm","Err"));
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        templayout = new LinearLayout(MainActivity.this);
+        templayout.setOrientation(LinearLayout.HORIZONTAL);
+        scroll_mainBottom = (HorizontalScrollView) findViewById(R.id.scroll_mainBottom);
+        View v = LayoutInflater.from(MainActivity.this).inflate(R.layout.ecg,null);
+        templayout.addView(v);
+        v = LayoutInflater.from(MainActivity.this).inflate(R.layout.attention,null);
+        templayout.addView(v);
+        scroll_mainBottom.addView(templayout);
+
+        //開始執行ECGdraw的動作，並新增LAYOUT
+        ecg = new ECGview(MainActivity.this);
+        linearLayout = (LinearLayout)findViewById(R.id.DrawLayout);
+        linearLayout.addView(ecg);
+
+        tgDevice = new TGDevice(bluetoothAdapter, handler);
+        geocoder = new Geocoder(MainActivity.this, Locale.TRADITIONAL_CHINESE);
+        mQueue = Volley.newRequestQueue(this);
+
+        btn_connectBT = (Button) findViewById(R.id.btn_connectBT);
+        bpmAverage = (TextView) findViewById(R.id.bpmAverage);
+        peak_iamge = (ImageView) findViewById(R.id.peak_image);
+        textview_attention = (TextView) findViewById(R.id.textview_attention);
+        connectBrain = (LinearLayout) findViewById(R.id.connect_brain);
+        attentionBar = (ProgressBar) findViewById(R.id.progressBar);
+        attentionBar.setProgressDrawable(getDrawable(R.drawable.progress_font));
+        connectBrain.setOnClickListener(clickListener);
+        btn_connectBT.setOnClickListener(clickListener);
+        peak_iamge.setOnClickListener(clickListener);
+
+
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
+    }
+
+    View.OnClickListener clickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()) {
+                case R.id.btn_connectBT:
+                    try {
+                        BTConnect();
+                        startStream();
+                        getDataThread = new GetDataThread(btSocket,ecg,bmpHandler);
+                    } catch (IOException e) {
+                        Toast.makeText(MainActivity.this, "藍芽連接失敗", Toast.LENGTH_SHORT);
+                        Log.e("connectBT", e.toString());
+                    }
+
+                    break;
+                case R.id.peak_image:
+                    final String[] level = new String[]{"準位上升", "準位下降", "訊號放大", "訊號縮小"};
+                    AlertDialog.Builder dialog_list = new AlertDialog.Builder(MainActivity.this);
+                    dialog_list.setTitle("心電訊號校正");
+                    dialog_list.setItems(level, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            switch (which) {
+                                case 0:
+                                    ecg.setLevel(-50);
+                                    break;
+                                case 1:
+                                    ecg.setLevel(50);
+                                    break;
+                                case 2:
+                                    ecg.setCompression(-1);
+                                    break;
+                                case 3:
+                                    ecg.setCompression(1);
+                                    break;
+                            }
+                            Toast.makeText(MainActivity.this, "準位校正" + level[which], Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+                    dialog_list.show();
+                    break;
+
+                case R.id.connect_brain:
+                    if (tgDevice.getState() != TGDevice.STATE_CONNECTING
+                            && tgDevice.getState() != TGDevice.STATE_CONNECTED)
+                        tgDevice.connect(true);
+
+                    break;
+            }
+        }
+    };
+
     private void UserStatus(int attention) {
             textview_attention.setText("專注力 "+ attention+"%");
     }
@@ -308,19 +249,22 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     /*************************藍芽連線*************************/
-    public boolean BTConnect() {
-        try {
-            btSocket.connect();
-        } catch (IOException e) {
-            Toast.makeText(MainActivity.this,"藍芽連接失敗",Toast.LENGTH_SHORT).show();
-            try {
-                btSocket.close();
-            } catch (IOException e2) {
-                Toast.makeText(MainActivity.this,"藍芽連接失敗",Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception ex){
-            Log.e("BT connect",ex.toString() +"  Line:"+ex.getStackTrace()[0].getLineNumber());
-        }
-        return btSocket.isConnected();
+    private void BTConnect() throws IOException{
+        btSocket = device.createRfcommSocketToServiceRecord(MY_UUID);
+        btSocket.connect();
+        if(!btSocket.isConnected())
+            throw new IOException();
+
+        btn_connectBT.setEnabled(false);
+        btn_connectBT.setText("已連線");
+
+    }
+
+    private void startStream() throws IOException{
+        outStream = btSocket.getOutputStream();
+        outStream.write("S".getBytes());
     }
 }
+
+
+

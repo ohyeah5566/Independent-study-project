@@ -29,7 +29,7 @@ public class ECGview extends View {
     ArrayList<Point> draw_point = new ArrayList<>();              //儲存這次要畫的所有點與點
 
     int x = 0;
-    Handler Inva_handler;       //繪圖也算一個在非主UI改主UI的事件，因此也需要使用Handler
+    Handler Inva_handler;       //繪圖也算一個在非主thread改主UI的事件，因此也需要使用Handler
 
     public ECGview(Context context) {
         super(context);
@@ -53,7 +53,6 @@ public class ECGview extends View {
     }
 
     public void addValue(int data) {
-        //   path.offer(new Point(x += 2, 300 - (data / 2)));     //將傳進來的資料放到path柱列裡面，再做一些運算
         draw_point.add(new Point(x += 2, level - (data / compression)));     //將傳進來的資料放到path柱列裡面，再做一些運算
         if (x == Max_x) x = 0;                                 //當Max_x等於X軸的最大距離 Max_x歸零
         Inva_handler.post(runnable);                         //呼叫重繪的執行緒
@@ -67,9 +66,7 @@ public class ECGview extends View {
 
 
         try {
-            //     draw_point.add(path.remove());               //將上一次存入的
             paint.setARGB(255, 0, 255, 0);
-
 
             Point pre_pt;
             Point this_pt = draw_point.get(0);
